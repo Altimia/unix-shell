@@ -30,10 +30,10 @@ void execute_command_line(command_line_info *cmd_info);
 void execute_builtin_command(command_t *command);
 void execute_non_builtin_command(command_t *command);
 void expand_wildcard_characters(char **tokens, int token_count, char ***expanded_tokens, int *expanded_token_count);
-void handle_redirection(...);
-void execute_pipeline(...);
-void execute_background_job(...);
-void execute_sequential_job(...);
+//void handle_redirection(...);
+//void execute_pipeline(...);
+//void execute_background_job(...);
+//void execute_sequential_job(...);
 
 int main() {
     char *input;
@@ -61,15 +61,15 @@ int main() {
         }
         
         // Parse the command line structure
-        parse_command_line(...);
+        //parse_command_line(...);
 
         // Create a command line info structure to store parsed information
-        command_line_info cmd_info;
+        //command_line_info cmd_info;
         
         // TODO: Fill the cmd_info structure with the parsed information
         
         // Execute the command line
-        execute_command_line(&cmd_info);
+        //execute_command_line(&cmd_info);
         
         // Free the memory
         free(input);
@@ -86,24 +86,16 @@ int main() {
     return 0;
 }
 
-void tokenize_command_line(char *input, command_line_info *cmd_info) {
-    int token_count = 0;
-    int token_capacity = 10;
-    cmd_info->tokens = malloc(token_capacity * sizeof(char *));
-    
+void tokenize_command_line(char *input, char ***tokens, int *token_count) {
+    *token_count = 0;
+    *tokens = NULL;
     char *token = strtok(input, " \t\n");
-    while (token != NULL) {
-        cmd_info->tokens[token_count++] = token;
-        
-        if (token_count >= token_capacity) {
-            token_capacity *= 2;
-            cmd_info->tokens = realloc(cmd_info->tokens, token_capacity * sizeof(char *));
-        }
-        
+    while (token) {
+        *tokens = realloc(*tokens, (*token_count + 1) * sizeof(char *));
+        (*tokens)[*token_count] = strdup(token);
+        (*token_count)++;
         token = strtok(NULL, " \t\n");
     }
-    
-    cmd_info->token_count = token_count;
 }
 
 void parse_command_line(command_line_info *cmd_info) {
