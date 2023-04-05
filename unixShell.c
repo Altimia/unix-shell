@@ -27,7 +27,7 @@ void tokenize_command_line(char *input, char ***tokens, int *token_count);
 void parse_command_line(command_line_info *cmd_info);
 bool is_builtin_command(char *command);
 void execute_command_line(command_line_info *cmd_info);
-void execute_builtin_command(command_t *command);
+void execute_builtin_command(const char *command, char **args);
 void execute_non_builtin_command(command_t *command);
 void expand_wildcard_characters(char **tokens, int token_count, char ***expanded_tokens, int *expanded_token_count);
 //void handle_redirection(...);
@@ -150,17 +150,41 @@ bool is_builtin_command(char *command) {
     return false;
 }
 
-void execute_builtin_command(command_t *command) {
-    if (strcmp(command->args[0], "prompt") == 0) {
-        // TODO: Implement the 'prompt' built-in command
-    } else if (strcmp(command->args[0], "pwd") == 0) {
-        // TODO: Implement the 'pwd' built-in command
-    } else if (strcmp(command->args[0], "cd") == 0) {
-        // TODO: Implement the 'cd' built-in command
-    } else if (strcmp(command->args[0], "exit") == 0) {
-        // TODO: Implement the 'exit' built-in command
-    } else {
-        fprintf(stderr, "Unknown built-in command: %s\n", command->args[0]);
+void execute_builtin_command(const char *command, char **args) {
+    if (strcmp(command, "prompt") == 0) {
+        // Change shell prompt
+        if (args[1]) {
+            // Assume the shell prompt variable is a global variable or accessible in some other way
+            strcpy(shell_prompt, args[1]);
+        } else {
+            fprintf(stderr, "Usage: prompt <new_prompt>\n");
+        }
+    } else if (strcmp(command, "pwd") == 0) {
+        // Print working directory
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s\n", cwd);
+        } else {
+            perror("Error getting current directory");
+        }
+    } else if (strcmp(command, "cd") == 0) {
+        // Change directory
+        if (args[1]) {
+            if (chdir(args[1]) != 0) {
+                perror("Error changing directory");
+            }
+        } else {
+            // Change to user's home directory if no path is provided
+            const char *home = getenv("HOME");
+            if (home) {
+                chdir(home);
+            } else {
+                fprintf(stderr, "Error: HOME environment variable not set\n");
+            }
+        }
+    } else if (strcmp(command, "exit") == 0) {
+        // Exit shell
+        exit(0);
     }
 }
 
