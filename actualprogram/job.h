@@ -15,5 +15,7 @@ struct command_list {
 
 int execute_command(const struct command *cmd);
 int execute_command_list(const struct command_list *cmd_list);
+void free_command_list(struct command_list *cmd_list);
+
 
 #endif // JOB

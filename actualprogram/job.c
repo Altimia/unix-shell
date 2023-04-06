@@ -86,3 +86,24 @@ int execute_command_list(const struct command_list *cmd_list) {
 
     return status;
 }
+
+void free_command_list(struct command_list *cmd_list) {
+    if (!cmd_list) return;
+
+    struct job *current_job = cmd_list->first_job;
+    while (current_job) {
+        struct job *next_job = current_job->next;
+
+        struct command *current_cmd = current_job->first_command;
+        while (current_cmd) {
+            struct command *next_cmd = current_cmd->next;
+            free_command(current_cmd);
+            current_cmd = next_cmd;
+        }
+
+        free(current_job);
+        current_job = next_job;
+    }
+
+    free(cmd_list);
+}

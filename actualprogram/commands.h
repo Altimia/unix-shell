@@ -18,6 +18,5 @@ bool is_builtin_command(const struct command *cmd);
 int execute_builtin_command(const struct command *cmd);
 int execute_command(const struct command *cmd);
 void free_command(struct command *cmd);
-void free_command_list(struct command_list *cmd_list);
 
 #endif // COMMANDS_H
