@@ -1,6 +1,0 @@
-{
-    "files.associations": {
-        "simple_shell.h": "c",
-        "glob_util.h": "c"
-    }
-}

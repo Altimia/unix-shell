@@ -20,6 +20,7 @@ After executing the command list, it frees the memory allocated for the command 
 #include "commands.h"
 #include "job.h"
 #include "parser.h"
+#include "shell.h"
 
 #define MAX_COMMAND_LEN 100
 #define MAX_ARGS 1000
