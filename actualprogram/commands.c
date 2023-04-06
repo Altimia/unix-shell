@@ -41,7 +41,7 @@ int print_working_directory() {
     return 0;
 }
 
-int is_builtin_command(const struct command *cmd) {
+bool is_builtin_command(const struct command *cmd) {
     return strcmp(cmd->argv[0], "cd") == 0 ||
            strcmp(cmd->argv[0], "pwd") == 0 ||
            strcmp(cmd->argv[0], "exit") == 0 ||

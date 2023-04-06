@@ -6,7 +6,7 @@
 #define MAX_ARGS 1000
 
 struct command {
-    char *argv[MAX_ARGS + 1];
+    char **argv;
     char *input_redir;
     char *output_redir;
     struct command *next;
