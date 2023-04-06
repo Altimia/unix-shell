@@ -21,7 +21,7 @@ and waits for the previous job to finish if the next job is not a background job
 #include "job.h"
 #include "parser.h"
 
-static int execute_job(const struct job *job) {
+int execute_job(const struct job *job) {
     int num_commands = 0;
     const struct command *cmd = job->first_command;
     while (cmd != NULL) {

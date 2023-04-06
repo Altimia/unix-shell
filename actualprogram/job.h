@@ -1,9 +1,19 @@
 #ifndef JOB_H
 #define JOB_H
 
-#include "parser.h"
+#include "commands.h"
 
-int execute_job(const struct job *job);
+struct job {
+    struct command *first_command;
+    struct job *next;
+    bool background;
+};
+
+struct command_list {
+    struct job *first_job;
+};
+
+int execute_command(const struct command *cmd);
 int execute_command_list(const struct command_list *cmd_list);
 
-#endif // JOB_H
+#endif // JOB

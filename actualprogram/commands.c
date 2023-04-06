@@ -18,8 +18,11 @@ and returns 0 or -1 depending on the result of executing the built-in command.
 #include "commands.h"
 #include "job.h"
 #include "parser.h"
+#include <fcntl.h>
 
-static int change_directory(const char *path) {
+#define PROMPT_DEFAULT "$ "
+
+int change_directory(const char *path) {
     if (chdir(path) != 0) {
         printf("cd: %s: %s\n", path, strerror(errno));
         return -1;
@@ -27,7 +30,7 @@ static int change_directory(const char *path) {
     return 0;
 }
 
-static int print_working_directory() {
+int print_working_directory() {
     char *cwd = getcwd(NULL, 0);
     if (cwd == NULL) {
         printf("pwd: %s\n", strerror(errno));
@@ -38,14 +41,14 @@ static int print_working_directory() {
     return 0;
 }
 
-static int is_builtin_command(const struct command *cmd) {
+int is_builtin_command(const struct command *cmd) {
     return strcmp(cmd->argv[0], "cd") == 0 ||
            strcmp(cmd->argv[0], "pwd") == 0 ||
            strcmp(cmd->argv[0], "exit") == 0 ||
            strcmp(cmd->argv[0], "prompt") == 0;
 }
 
-static int execute_builtin_command(const struct command *cmd) {
+int execute_builtin_command(const struct command *cmd) {
     if (strcmp(cmd->argv[0], "cd") == 0) {
         return change_directory(cmd->argv[1] ? cmd->argv[1] : getenv("HOME"));
     } else if (strcmp(cmd->argv[0], "pwd") == 0) {
