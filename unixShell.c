@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <glob.h>
 #include <stdbool.h>
+#include <fcntl.h>
 
 // Structure for storing command line information
 typedef struct command {
@@ -189,8 +190,49 @@ void execute_builtin_command(const char *command, char **args) {
 }
 
 void execute_non_builtin_command(command_t *command) {
-    // TODO: Implement the execution of non-built-in commands, handling
-    // input/output redirection, pipelines, background jobs, and sequential jobs
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+
+        // Handle input redirection
+        if (command->input_redirection) {
+            int in_fd = open(command->input_redirection, O_RDONLY);
+            if (in_fd < 0) {
+                perror("Error opening input file");
+                exit(1);
+            }
+            dup2(in_fd, STDIN_FILENO);
+            close(in_fd);
+        }
+
+        // Handle output redirection
+        if (command->output_redirection) {
+            int out_fd = open(command->output_redirection, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (out_fd < 0) {
+                perror("Error opening output file");
+                exit(1);
+            }
+            dup2(out_fd, STDOUT_FILENO);
+            close(out_fd);
+        }
+
+        // Execute command
+        if (execvp(command->argv[0], command->argv) < 0) {
+            perror("Error executing command");
+            exit(1);
+        }
+
+    } else if (pid > 0) {
+        // Parent process
+
+        if (!command->background) {
+            // Wait for child process if not a background job
+            int status;
+            waitpid(pid, &status, 0);
+        }
+    } else {
+        perror("Error forking process");
+    }
 }
 
 void execute_command_line(command_line_info *cmd_info) {
