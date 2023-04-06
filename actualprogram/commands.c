@@ -107,4 +107,37 @@ int execute_command(const struct command *cmd) {
 
     return pid;
 }
+void free_command(struct command *cmd) {
+    if (!cmd) return;
+    
+    for (int i = 0; cmd->argv[i]; i++) {
+        free(cmd->argv[i]);
+    }
+
+    free(cmd->input_redir);
+    free(cmd->output_redir);
+    free(cmd->argv);
+    free(cmd);
+}
+
+void free_command_list(struct command_list *cmd_list) {
+    if (!cmd_list) return;
+
+    struct job *current_job = cmd_list->first_job;
+    while (current_job) {
+        struct job *next_job = current_job->next;
+
+        struct command *current_cmd = current_job->first_command;
+        while (current_cmd) {
+            struct command *next_cmd = current_cmd->next;
+            free_command(current_cmd);
+            current_cmd = next_cmd;
+        }
+
+        free(current_job);
+        current_job = next_job;
+    }
+
+    free(cmd_list);
+}
 

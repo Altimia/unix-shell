@@ -8,6 +8,7 @@ that represents a list of jobs, each job being a sequence of commands.
 #include <string.h>
 #include "job.h"
 #include "parser.h"
+#include <stdio.h>
 
 //takes a string pointer as input and 
 //returns a pointer to a string that represents the next token in the string
