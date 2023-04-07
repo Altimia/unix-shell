@@ -122,11 +122,7 @@ void execute_command(char *command) {
     args[arg_idx] = NULL;
 
     if (arg_idx > 0) {
-        if (strcmp(args[0], "prompt") == 0 || strcmp(args[0], "pwd") == 0 ||
-            strcmp(args[0], "cd") == 0 || strcmp(args[0], "exit") == 0) {
-            builtin_commands(args[0]);
-            exit(0);
-        } else {
+        if (!builtin_commands(args)) {
             if (execvp(args[0], args) == -1) {
                 perror("execvp");
                 exit(1);
@@ -143,30 +139,33 @@ void expand_wildcards(char *token, glob_t *globbuf) {
     glob(token, flags, NULL, globbuf);
 }
 
-void builtin_commands(char *cmd) {
-    if (strcmp(cmd, "prompt") == 0) {
+int builtin_commands(char **args) {
+    if (strcmp(args[0], "prompt") == 0) {
         printf("Enter new prompt: ");
         char new_prompt[100];
         if (fgets(new_prompt, sizeof(new_prompt), stdin) != NULL) {
             strtok(new_prompt, "\n");
-            strcpy(cmd, new_prompt);
+            strcpy(args[0], new_prompt);
         }
-    } else if (strcmp(cmd, "pwd") == 0) {
+        return 1;
+    } else if (strcmp(args[0], "pwd") == 0) {
         char cwd[1024];
         if (getcwd(cwd, sizeof(cwd)) != NULL) {
             printf("%s\n", cwd);
         } else {
             perror("getcwd");
         }
-        exit(0);
-    } else if (strcmp(cmd, "cd") == 0) {
-        char *path = strtok(NULL, " \t\n");
+        return 1;
+    } else if (strcmp(args[0], "cd") == 0) {
+        char *path = args[1];
         if (chdir(path) == -1) {
             perror("chdir");
         }
-        exit(0);
-    } else if (strcmp(cmd, "exit") == 0) {
+        return 1;
+    } else if (strcmp(args[0], "exit") == 0) {
         exit(0);
     }
+    return 0;
 }
+
 
