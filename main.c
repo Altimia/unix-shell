@@ -113,7 +113,6 @@ void print_command_details(const Command commands, char* tokens[]) {
 void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, char **command_line) {
 	int n = 0;
 	for (n = 0; n < num_of_cmds; n++) {
-		// Needed for reference to command[n] when argv is changed in wildcard_handle
 		Command *com = &commands[n];
 		wildcard_check(com);
 
@@ -132,7 +131,6 @@ void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, 
 			exit(0);
 		}
 		else {
-			//Reference to current index in commands is needed when changed in pipe_command_execution()
 			int *index = &n;
 			if(commands[n].seperator == '|') {
 				pipe_command_execution(commands, index, num_of_cmds);
@@ -145,12 +143,10 @@ void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, 
 }
 	
 void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
-	//Reference to current commands index
 	int cmd_index = *index;
 	pid_t pid;
 	int pipe_num = 1;
 
-	//Checks for consecutive pipes
 	for(int i = cmd_index + 1; i < num_of_cmds; i++) {
 		if(cmd[i].seperator == '|') {
 			pipe_num++;
@@ -160,7 +156,6 @@ void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 		}
 	}
 
-	//Creates pipes
 	int p[pipe_num][2];
 	for(int i = 0; i < pipe_num; i++) {
 		if(pipe(p[i]) < 0) {
@@ -168,31 +163,24 @@ void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 		}
 	}	
 		
-	// pipe_num + 1 in order to execute the final command in the series of pipes
 	for(int pipe_index = 0; pipe_index < pipe_num + 1; pipe_index++) {	
-		// Checks if arguments are present after the separator
 		if(cmd[cmd_index + pipe_index].argv != NULL) {
 			pid = fork();
 			if(pid == 0) {
 				if(pipe_index == 0) {		
-					//Only writes to pipe if first
 					dup2(p[pipe_index][1], STDOUT_FILENO);
 				}
 				else if(pipe_index == pipe_num) {
-					//Only reads from pipe if last
 					dup2(p[pipe_index - 1][0], STDIN_FILENO);
 				}
 				else {
-					//Reads from previous pipe and writes to current pipe
 					dup2(p[pipe_index - 1][0], STDIN_FILENO);
 					dup2(p[pipe_index][1], STDOUT_FILENO);
 				}
 			
-				//Reference needed for redirection
 				Command *com = &cmd[pipe_index + cmd_index];
 				redirection(com);
 
-				//Closes both read and write ends of all pipes
 				for(int i = 0; i < pipe_num; i++) {
 					close(p[i][0]);
 					close(p[i][1]);
@@ -205,14 +193,11 @@ void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 		}
 	}
 
-	//Closes all pipes which are still active
 	for(int i = 0; i < pipe_num; i++) {
 		close(p[i][0]);
 		close(p[i][1]);
 	}
 
-	// Checks if the pipe chain is a background process, executing in the background if true
-	// else sequentially executes with other commands
 	if(cmd_index > 0) {		
 		if(cmd[cmd_index - 1].seperator != '&') {	
 			for(int i = 0; i < pipe_num + 1; i++) {
@@ -225,10 +210,6 @@ void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 			waitpid(pid, NULL, 0);
 		}
 	}
-		
-	//Changes the current index for the commands[] to position after the final pipe output
-	//For example so the command 'more' instead next executed standalone when the current command
-	//is 'ls *.c | more'
 	*index += pipe_num;
 }
 
