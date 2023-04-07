@@ -318,15 +318,15 @@ void handler(int id) {
 }
 
 void init_signal() {
-	struct SIGACTION act;
+	struct sigaction act;
 
 	act.sa_flags = 0;
 	act.sa_handler = handler;
 
-	SIGACTION(SIGCHLD, &act, NULL);
-	SIGACTION(SIGINT, &act, NULL);
-	SIGACTION(SIGTSTP, &act, NULL);
-	SIGACTION(SIGQUIT, &act, NULL);
+	sigaction(SIGCHLD, &act, NULL);
+	sigaction(SIGINT, &act, NULL);
+	sigaction(SIGTSTP, &act, NULL);
+	sigaction(SIGQUIT, &act, NULL);
 }
 
 void pwd_command() {
