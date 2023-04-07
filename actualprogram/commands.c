@@ -100,15 +100,6 @@ int execute_command(const struct command *cmd) {
             close(fd);
         }
 
-        if (pipe_fd[0] != -1) {
-            dup2(pipe_fd[0], STDIN_FILENO);
-            close(pipe_fd[0]);
-        }
-        if (pipe_fd[1] != -1) {
-            dup2(pipe_fd[1], STDOUT_FILENO);
-            close(pipe_fd[1]);
-        }
-
         execvp(cmd->argv[0], cmd->argv);
         printf("Failed to execute command: %s: %s\n", cmd->argv[0], strerror(errno));
         exit(1);
