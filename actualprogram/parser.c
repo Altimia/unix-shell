@@ -68,6 +68,22 @@ static struct command *parse_command(char **str_ptr) {
                 globbuf.gl_pathc = 0;
                 glob_initialized = true;
             }
+            if (strcmp(token, ";") == 0) {
+                cmd->type = CMD_SEQ;
+                break;
+            } else if (strcmp(token, "&") == 0) {
+                cmd->type = CMD_BACKGROUND;
+                break;
+            } else if (strcmp(token, "|") == 0) {
+                cmd->type = CMD_PIPE;
+                break;
+            } else if (strcmp(token, ">") == 0) {
+                cmd->type = CMD_REDIRECT_OUT;
+                break;
+            } else if (strcmp(token, "<") == 0) {
+                cmd->type = CMD_REDIRECT_IN;
+                break;
+            } else {
             globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv));
             globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
             globbuf.gl_pathv[globbuf.gl_pathc] = NULL;
