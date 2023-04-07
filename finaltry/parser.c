@@ -32,26 +32,6 @@ static struct Job *create_job() {
     return job;
 }
 
-static void free_command(struct Command *command) {
-    if (command->argv) {
-        free(command->argv);
-    }
-    if (command->input) {
-        free(command->input);
-    }
-    if (command->output) {
-        free(command->output);
-    }
-    free(command);
-}
-
-static void free_job(struct Job *job) {
-    if (job->command) {
-        free_command(job->command);
-    }
-    free(job);
-}
-
 static char **add_argument(char **argv, int argc, const char *arg) {
     char **new_argv = realloc(argv, (argc + 2) * sizeof(char *));
     if (!new_argv) {
@@ -66,7 +46,7 @@ static char **add_argument(char **argv, int argc, const char *arg) {
 
 static char *parse_token(char *str, struct Command *command, int *argc) {
     glob_t globbuf;
-    int glob_flags = GLOB_NOCHECK | GLOB_TILDE;
+    int glob_flags = GLOB_NOCHECK;
 
     char token[TOKEN_BUFFER];
     char *p = token;

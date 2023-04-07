@@ -17,7 +17,7 @@ job.o: job.c job.h parser.h
 parser.o: parser.c parser.h
 	$(CC) $(CFLAGS) -c parser.c
 
-shell.o: shell.c commands.h job.h parser.h shell.h
+shell.o: shell.c commands.h job.h parser.h
 	$(CC) $(CFLAGS) -c shell.c
 
 clean:
