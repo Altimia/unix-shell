@@ -112,7 +112,7 @@ void execute_command(char *command) {
             glob_t globbuf;
             globbuf.gl_offs = 0;
             expand_wildcards(token, &globbuf);
-                        for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+            for (size_t i = 0; i < globbuf.gl_pathc; i++) {
                 args[arg_idx++] = globbuf.gl_pathv[i];
             }
             globfree(&globbuf);
@@ -122,12 +122,16 @@ void execute_command(char *command) {
     args[arg_idx] = NULL;
 
     if (arg_idx > 0) {
-        builtin_commands(args[0]);
-    }
-
-    if (execvp(args[0], args) == -1) {
-        perror("execvp");
-        exit(1);
+        if (strcmp(args[0], "prompt") == 0 || strcmp(args[0], "pwd") == 0 ||
+            strcmp(args[0], "cd") == 0 || strcmp(args[0], "exit") == 0) {
+            builtin_commands(args[0]);
+            exit(0);
+        } else {
+            if (execvp(args[0], args) == -1) {
+                perror("execvp");
+                exit(1);
+            }
+        }
     }
 }
 
