@@ -27,11 +27,11 @@ Below is a brief description of the functions implemented in the project:
     is_sequence_seperator(): Checks if a token is a sequence separator.
     command_constructor(): Constructs a command from provided data.
     command_make(): Handles error checking and discovers command start and end in the token array.
-    search_redirection(): Searches for redirection tokens in a command.
-    command_args_make(): Constructs a command's arguments.
+    find_redirection(): Searches for redirection tokens in a command.
+    cmd_argument_constructor(): Constructs a command's arguments.
     init_commands(): Initializes all commands.
     tokenise(): Creates an array of string tokens from a given input line.
-    get_token_num(): Gets the number of tokens needed for a given input line.
+    token_number(): Gets the number of tokens needed for a given input line.
     wildcard_check(): Checks for wildcard expressions in a command.
     wildcard_handle(): Handles wildcard expressions in a command.
     pwd_command(): Displays the current working directory.

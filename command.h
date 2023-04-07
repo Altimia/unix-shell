@@ -39,10 +39,10 @@ void command_constructor(Command *c, int first, int last, char *seperator);
 int command_make(int tokenNum, char* tokens[], Command command[]);
 
 // Search for redirection tokens
-void search_redirection(char* tokens[], Command *cmd);
+void find_redirection(char* tokens[], Command *cmd);
 
 // Constructs command's arguments 
-void command_args_make(char* tokens[], Command *cmd);
+void cmd_argument_constructor(char* tokens[], Command *cmd);
 
 // Desc: Initialises all commands 
 void init_commands(Command c[]);

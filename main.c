@@ -70,7 +70,7 @@ int main() {
 		printf("\n%s$ ", prompt);	
 		get_input(&cmd);
 
-		char **tokens = (char**) malloc((get_token_num(cmd)+1) * sizeof(char*));
+		char **tokens = (char**) malloc((token_number(cmd)+1) * sizeof(char*));
 
 		int i = tokenise(cmd, tokens);
 	

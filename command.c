@@ -47,7 +47,7 @@ void init_commands(Command c[]) {
 	}
 }
 
-void command_args_make(char* tokens[], Command *cmd) {
+void cmd_argument_constructor(char* tokens[], Command *cmd) {
 	int n = (cmd->last - cmd->first + 1) + 1;
 
 	cmd->argv = (char**) realloc(cmd->argv, sizeof(char*) * n);
@@ -103,7 +103,7 @@ int command_make(int tokenNum, char* tokens[], Command command[]) {
 
 	for(int i = 0; i < noCmds; i++) {
 		find_redirection(tokens, &(command[i]));
-		command_args_make(tokens, &(command[i]));
+		cmd_argument_constructor(tokens, &(command[i]));
 	}
 	return noCmds;
 }

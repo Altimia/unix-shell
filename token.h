@@ -4,4 +4,4 @@
 int tokenise(char *input_line, char *token[]);
 
 // Get number of tokens needed given a string 
-int get_token_num(char *input_line);
+int token_number(char *input_line);

@@ -18,7 +18,7 @@ int tokenise(char *input_line, char *token[]) {
 	return i;
 }
 
-int get_token_num(char *input_line) {
+int token_number(char *input_line) {
 	char *token_s;
 	int i = 0;
 
