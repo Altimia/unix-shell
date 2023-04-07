@@ -5,5 +5,6 @@
 
 void execute_job(struct Job *job);
 void free_job(struct Job *job);
+void free_command(struct Command *command);
 
 #endif

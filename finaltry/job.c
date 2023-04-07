@@ -33,3 +33,26 @@ void free_job(struct Job *job) {
     }
     free(job);
 }
+
+void free_command(struct Command *command) {
+    if (!command) {
+        return;
+    }
+
+    if (command->argv) {
+        for (int i = 0; command->argv[i]; i++) {
+            free(command->argv[i]);
+        }
+        free(command->argv);
+    }
+
+    if (command->input) {
+        free(command->input);
+    }
+
+    if (command->output) {
+        free(command->output);
+    }
+
+    free(command);
+}
