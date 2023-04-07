@@ -9,6 +9,7 @@ that represents a list of jobs, each job being a sequence of commands.
 #include "job.h"
 #include "parser.h"
 #include <stdio.h>
+#include <glob.h>
 
 //takes a string pointer as input and 
 //returns a pointer to a string that represents the next token in the string
@@ -42,22 +43,48 @@ static struct command *parse_command(char **str_ptr) {
     cmd->argv = calloc(MAX_ARGS + 1, sizeof(char *));
     int argc = 0;
 
-    while (true) {
-        cmd->argv[argc] = parse_token(str_ptr);
-        if (cmd->argv[argc] == NULL) break;
-        argc++;
+    glob_t globbuf;
+    int glob_flags = GLOB_NOCHECK | GLOB_APPEND;
+    bool glob_initialized = false;
 
-        if (argc >= MAX_ARGS) {
+    while (true) {
+        char *token = parse_token(str_ptr);
+        if (token == NULL) break;
+
+        if (strpbrk(token, "*?") != NULL) {
+            if (!glob_initialized) {
+                glob(token, GLOB_NOCHECK, NULL, &globbuf);
+                glob_initialized = true;
+            } else {
+                glob(token, glob_flags, NULL, &globbuf);
+            }
+        } else {
+            if (!glob_initialized) {
+                globbuf.gl_pathv = NULL;
+                globbuf.gl_pathc = 0;
+                glob_initialized = true;
+            }
+            globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 1) * sizeof(*globbuf.gl_pathv));
+            globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
+        }
+
+        if (globbuf.gl_pathc >= MAX_ARGS) {
             printf("Too many arguments in command\n");
             free_command(cmd);
             return NULL;
         }
     }
 
-    if (argc == 0) {
+    if (globbuf.gl_pathc == 0) {
         free_command(cmd);
         return NULL;
     }
+
+    for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+        cmd->argv[argc++] = strdup(globbuf.gl_pathv[i]);
+    }
+
+    globfree(&globbuf);
 
     return cmd;
 }
