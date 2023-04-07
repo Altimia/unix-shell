@@ -71,7 +71,7 @@ int main() {
 	init_signal();
 	do {
 		wait_for_zombies();
-		printf("\n%s$ ", prompt);	
+		printf("shell$ ", prompt);	
 		get_input(&cmd);
 
 		char **tokens = (char**) malloc((token_number(cmd)+1) * sizeof(char*));
@@ -125,7 +125,24 @@ void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, 
 		}
 	}
 }
-	
+
+
+void command_execution(Command *cmd, int *index) {
+	int n = *index;
+	pid_t pid = fork();
+	if(pid == 0) {
+		Command *com = &cmd[n];
+		redirection(com);
+		execvp(cmd[n].argv[0], cmd[n].argv);
+		exit(0);
+	}
+	else {
+		if(cmd[n].seperator != '&') {
+			waitpid(pid, NULL, WUNTRACED | WCONTINUED);
+		}
+	}
+}
+
 void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 	int cmd_index = *index;
 	pid_t pid;
@@ -197,22 +214,6 @@ void pipe_command_execution(Command *cmd, int *index, int num_of_cmds) {
 	*index += pipe_num;
 }
 
-void command_execution(Command *cmd, int *index) {
-	int n = *index;
-	pid_t pid = fork();
-	if(pid == 0) {
-		Command *com = &cmd[n];
-		redirection(com);
-		execvp(cmd[n].argv[0], cmd[n].argv);
-		exit(0);
-	}
-	else {
-		if(cmd[n].seperator != '&') {
-			waitpid(pid, NULL, WUNTRACED | WCONTINUED);
-		}
-	}
-}
-
 void redirection(Command *cmd) {
 	int fdout;
 	int fdin;
@@ -240,6 +241,29 @@ void redirection(Command *cmd) {
 	}
 }
 
+void cd_command(Command cmd) {
+	if(cmd.argv[1] != NULL) {
+		if(chdir(cmd.argv[1]) < 0) {
+			perror("Error");
+		}
+	}
+	else {
+		chdir("/");
+	}
+}
+
+void pwd_command() {
+	int max_length = 256;
+	char current_directory[max_length];
+
+	if(getcwd(current_directory, sizeof(current_directory)) != NULL) {
+		printf("%s\n", current_directory);
+	}
+	else {
+		printf("Error: Path name exceeds set length\n");
+	}
+}
+
 void prompt_command(char *prompt, Command cmd) {
 	if(cmd.argv[1] != NULL) {
 		if(strlen(cmd.argv[1]) < MAXSIZE) {
@@ -253,17 +277,6 @@ void prompt_command(char *prompt, Command cmd) {
 		printf("Error: Expected Argument - Missing first argument\n");
 	}
 
-}
-
-void cd_command(Command cmd) {
-	if(cmd.argv[1] != NULL) {
-		if(chdir(cmd.argv[1]) < 0) {
-			perror("Error");
-		}
-	}
-	else {
-		chdir("/");
-	}
 }
 
 void handler(int id) {
@@ -293,15 +306,14 @@ void init_signal() {
 	sigaction(SIGQUIT, &act, NULL);
 }
 
-void pwd_command() {
-	int max_length = 256;
-	char current_directory[max_length];
-
-	if(getcwd(current_directory, sizeof(current_directory)) != NULL) {
-		printf("%s\n", current_directory);
-	}
-	else {
-		printf("Error: Path name exceeds set length\n");
+void check_wildcard(Command *cmd) {
+	int m = 0;
+	while(cmd->argv[m] != NULL) {
+		if(strchr(cmd->argv[m], '*') != NULL || strchr(cmd->argv[m], '?') != NULL) {
+			handle_wildcard(cmd, m);
+			break;
+		}
+		m++;
 	}
 }
 
@@ -354,17 +366,6 @@ void handle_wildcard(Command *cmd, int index) {
 		}
 	}
 }		
-
-void check_wildcard(Command *cmd) {
-	int m = 0;
-	while(cmd->argv[m] != NULL) {
-		if(strchr(cmd->argv[m], '*') != NULL || strchr(cmd->argv[m], '?') != NULL) {
-			handle_wildcard(cmd, m);
-			break;
-		}
-		m++;
-	}
-}
 
 void get_input(char **input) {
 	int repeat = 1;
