@@ -15,12 +15,11 @@ and returns 0 or -1 depending on the result of executing the built-in command.
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "commands.h"
 #include "job.h"
 #include "parser.h"
-#include <fcntl.h>
-
-#define PROMPT_DEFAULT "$ "
+#include "shell.h"
 
 int change_directory(const char *path) {
     if (chdir(path) != 0) {
