@@ -36,7 +36,7 @@ int is_sequence_seperator(char *token);
 void command_constructor(Command *c, int first, int last, char *seperator);
 
 // Various error checking and discovers command start and end in token array 
-int command_make(int tokenNum, char* tokens[], Command command[]);
+int parse_command(int tokenNum, char* tokens[], Command command[]);
 
 // Search for redirection tokens
 void find_redirection(char* tokens[], Command *cmd);

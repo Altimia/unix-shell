@@ -68,7 +68,7 @@ void cmd_argument_constructor(char* tokens[], Command *cmd) {
 	cmd->argv[k] = NULL;
 }
 
-int command_make(int tokenNum, char* tokens[], Command command[]) {
+int parse_command(int tokenNum, char* tokens[], Command command[]) {
 	if(tokenNum == 0) {
 		return -1;
 	}

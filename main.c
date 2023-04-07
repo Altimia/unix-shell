@@ -23,10 +23,10 @@
 #define CMD_EXIT "exit"
 
 // Check for wildcards 
-void wildcard_check(Command *cmd);
+void check_wildcard(Command *cmd);
 
 // Handle wildcard expressions 
-void wildcard_handle(Command *cmd, int index);
+void handle_wildcard(Command *cmd, int index);
 
 // Display current working directory 
 void pwd_command();
@@ -40,10 +40,10 @@ void prompt_command(char *prompt, Command cmd);
 // Handle standard input and output redirections
 void redirection(Command *cmd);
 
-// Handle shell pipeline execution 
+// Execute commands with pipe
 void pipe_command_execution(Command *cmd, int *index, int num_of_cmds);
 
-// Handle command execution 
+// Execute commands
 void command_execution(Command *cmd, int *index);
 
 // Free allocated memory for command arguments 
@@ -77,7 +77,7 @@ int main() {
 		Command commands[MAXCMDS]; 
 		init_commands(commands);
 	
-		int n_cmd = command_make(i, tokens, commands);
+		int n_cmd = parse_command(i, tokens, commands);
 
 		free(tokens);
 
@@ -90,31 +90,11 @@ int main() {
 	exit(0);	
 }
 
-void print_command_details(const Command commands, char* tokens[]) {
-	printf("Command: ");
-	for (int j = commands.first; j < commands.last; j++) {
-		printf("%s ", tokens[j]);
-	}
-	printf("\n");
-
-	printf("Tokens:\n");
-
-	int k = 0;
-	while(commands.argv[k] != NULL) {
-		printf("\t%s\n", commands.argv[k]);
-		k++;
-	}
-
-	printf("Separator: %c\n", commands.seperator);
-
-	printf("In Redirection: %s, Out Redirection %s\n", commands.in_file, commands.out_file);
-}
-
 void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, char **command_line) {
 	int n = 0;
 	for (n = 0; n < num_of_cmds; n++) {
 		Command *com = &commands[n];
-		wildcard_check(com);
+		check_wildcard(com);
 
 		if(strcmp(commands[n].argv[0], CMD_PROMPT) == 0) {
 			prompt_command(prompt, commands[n]);
@@ -321,12 +301,12 @@ void pwd_command() {
 	}
 }
 
-void wildcard_handle(Command *cmd, int index) {
+void handle_wildcard(Command *cmd, int index) {
 	glob_t glob_buf;
 	int glob_return;
 
 	char **extraTokens = NULL;
-	int extraTokenCount = 0;
+	int tokenCounter = 0;
 	
 	glob_return = glob(cmd->argv[index], GLOB_ERR, NULL, &glob_buf);
 		
@@ -334,48 +314,48 @@ void wildcard_handle(Command *cmd, int index) {
 
 	int j = index + 1;
 	while(cmd->argv[j] != NULL) {
-		extraTokens[extraTokenCount] = cmd->argv[j];
-		extraTokenCount++;
+		extraTokens[tokenCounter] = cmd->argv[j];
+		tokenCounter++;
 		j++;
 	}	
 
 	if(glob_return == 0) {
-		cmd->argv = (char **) realloc(cmd->argv, sizeof(char *) * (glob_buf.gl_pathc + index + extraTokenCount + 1));
+		cmd->argv = (char **) realloc(cmd->argv, sizeof(char *) * (glob_buf.gl_pathc + index + tokenCounter + 1));
 
 		int i = 0;
 		for(i = 0; i < glob_buf.gl_pathc; i++) {
 			cmd->argv[i + index] = glob_buf.gl_pathv[i];
 		}
 
-		for(int k = 0; k < extraTokenCount; k++) {
+		for(int k = 0; k < tokenCounter; k++) {
 			cmd->argv[i + index] = extraTokens[k];
 			i++;
 		}
 		cmd->argv[i + index] = NULL;
 			
-		if(extraTokenCount > 0) {
-			wildcard_check(cmd);
+		if(tokenCounter > 0) {
+			check_wildcard(cmd);
 		}
 	}
 	else {
 		printf("Cannot access '%s': No such file or directory\n", cmd->argv[index]);
 
-		if(extraTokenCount > 0) {
+		if(tokenCounter > 0) {
 			int i = 0;
-			for(i = 0; i < extraTokenCount; i++) {
+			for(i = 0; i < tokenCounter; i++) {
 				cmd->argv[i + index] = extraTokens[i];
 			}
 			cmd->argv[i + index] = NULL;
-			wildcard_check(cmd);
+			check_wildcard(cmd);
 		}
 	}
 }		
 
-void wildcard_check(Command *cmd) {
+void check_wildcard(Command *cmd) {
 	int m = 0;
 	while(cmd->argv[m] != NULL) {
 		if(strchr(cmd->argv[m], '*') != NULL || strchr(cmd->argv[m], '?') != NULL) {
-			wildcard_handle(cmd, m);
+			handle_wildcard(cmd, m);
 			break;
 		}
 		m++;
