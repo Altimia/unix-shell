@@ -75,8 +75,8 @@ static struct command *parse_command(char **str_ptr) {
             globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv));
             globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
             globbuf.gl_pathv[globbuf.gl_pathc] = NULL;
+            }
         }
-
         free(token);
 
         if (globbuf.gl_pathc >= MAX_ARGS) {
@@ -158,7 +158,6 @@ struct command_list *parse_command_line(const char *command_line) {
         }
         while (isspace(*str_ptr)) str_ptr++;
     }
-
     free(str);
     return cmd_list;
 }
