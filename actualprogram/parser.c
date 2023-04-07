@@ -64,9 +64,12 @@ static struct command *parse_command(char **str_ptr) {
                 globbuf.gl_pathc = 0;
                 glob_initialized = true;
             }
-            globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 1) * sizeof(*globbuf.gl_pathv));
+            globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv));
             globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
+            globuff.gl_pathv[globbuf.gl_pathc] = NULL;
         }
+
+        free(token);
 
         if (globbuf.gl_pathc >= MAX_ARGS) {
             printf("Too many arguments in command\n");
@@ -83,7 +86,8 @@ static struct command *parse_command(char **str_ptr) {
     for (size_t i = 0; i < globbuf.gl_pathc; i++) {
         cmd->argv[argc++] = strdup(globbuf.gl_pathv[i]);
     }
-
+    cmd->argv[argc] = NULL;
+    
     globfree(&globbuf);
 
     return cmd;
