@@ -1,261 +1,168 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/wait.h>
+#include <string.h>
 #include <errno.h>
+#include <signal.h>
+#include <fcntl.h>
+#include <sys/wait.h>
 #include <glob.h>
-#include <stdbool.h>
 
-#define MAX_COMMANDS 100
-#define MAX_ARGUMENTS 1000
-#define BUFFER_SIZE 1024
+#define MAX_CMD_SIZE 100
+#define MAX_ARGS_SIZE 1000
 
-typedef struct command {
-    char *cmd;
-    char *args[MAX_ARGUMENTS];
-    int nargs;
-    char *input;
-    char *output;
-    bool background;
-} command;
-
-void change_directory(char *path);
-void print_working_directory();
-void parse_command(char *line, command *commands, int *num_commands);
-void execute_commands(command *commands, int num_commands);
-void execute_pipeline(command *commands, int start, int end);
-void free_commands(command *commands, int num_commands);
-void handle_exit(command *commands, int num_commands);
+void set_signal_handlers();
+void execute_command_line(char *cmd);
+void execute_job(char *job, int bg);
+void execute_command(char *command);
+void expand_wildcards(char *token, glob_t *globbuf);
+void builtin_commands(char *cmd);
 
 int main() {
-    char prompt[BUFFER_SIZE] = "myshell> ";
-    char line[BUFFER_SIZE];
-    command commands[MAX_COMMANDS];
-    int num_commands;
-
+    char cmd[MAX_CMD_SIZE];
+    set_signal_handlers();
     while (1) {
-        printf("%s", prompt);
-        if (fgets(line, BUFFER_SIZE, stdin) == NULL) {
+        printf("shell> ");
+        if (fgets(cmd, sizeof(cmd), stdin) == NULL) {
             break;
         }
-
-        parse_command(line, commands, &num_commands);
-        if (num_commands == 0) {
-            continue;
-        }
-
-        if (strcmp(commands[0].cmd, "prompt") == 0) {
-            if (commands[0].nargs > 1) {
-                printf("prompt: too many arguments\n");
-            } else if (commands[0].nargs == 1) {
-                strncpy(prompt, commands[0].args[0], BUFFER_SIZE - 1);
-                prompt[BUFFER_SIZE - 1] = '\0';
-            }
-        } else if (strcmp(commands[0].cmd, "exit") == 0) {
-            handle_exit(commands, num_commands);
-        } else if (strcmp(commands[0].cmd, "pwd") == 0) {
-            print_working_directory();
-        } else if (strcmp(commands[0].cmd, "cd") == 0) {
-            if (commands[0].nargs == 1) {
-                change_directory(commands[0].args[0]);
-            } else {
-                printf("cd: too many arguments\n");
-            }
-        } else {
-            execute_commands(commands, num_commands);
-        }
-
-        free_commands(commands, num_commands);
+        execute_command_line(cmd);
     }
-
     return 0;
 }
 
-void change_directory(char *path) {
-    if (chdir(path) != 0) {
-        perror("cd");
-    }
+void set_signal_handlers() {
+    signal(SIGINT, SIG_IGN);
+    signal(SIGQUIT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
 }
 
-void print_working_directory() {
-    char cwd[BUFFER_SIZE];
-    if (getcwd(cwd, sizeof(cwd)) != NULL) {
-        printf("%s\n", cwd);
-    } else {
-        perror("pwd");
-    }
-}
-
-void parse_command(char *line, command *commands, int *num_commands) {
-    int i = 0;
-    char *token;
-    char *saveptr_line, *saveptr_token;
-    const char *delim_line = "&;\n";
-    const char *delim_token = " \t";
-
-    *num_commands = 0;
-    token = strtok_r(line, delim_line, &saveptr_line);
-    while (token != NULL) {
-        command *current = &commands[(*num_commands)++];
-        current->cmd = NULL;
-        current->nargs = 0;
-        current->input = NULL;
-        current->output = NULL;
-        current->background = false;
-
-        char *arg = strtok_r(token, delim_token, &saveptr_token);
-        while (arg != NULL) {
-            if (strcmp(arg, "<") == 0) {
-                arg = strtok_r(NULL, delim_token, &saveptr_token);
-                if (arg == NULL) {
-                    fprintf(stderr, "parse_command: no input file\n");
-                    break;
-                }
-                current->input = strdup(arg);
-            } else if (strcmp(arg, ">") == 0) {
-                arg = strtok_r(NULL, delim_token, &saveptr_token);
-                if (arg == NULL) {
-                    fprintf(stderr, "parse_command: no output file\n");
-                    break;
-                }
-                current->output = strdup(arg);
-            } else if (strcmp(arg, "|") == 0) {
-                break;
-            } else if (strcmp(arg, "&") == 0) {
-                current->background = true;
-            } else {
-                if (current->cmd == NULL) {
-                    current->cmd = strdup(arg);
-                }
-
-                if (strchr(arg, '*') != NULL || strchr(arg, '?') != NULL) {
-                    glob_t globbuf;
-                    int ret = glob(arg, 0, NULL, &globbuf);
-                    if (ret == 0) {
-                        for (size_t j = 0; j < globbuf.gl_pathc; ++j) {
-                            current->args[i++] = strdup(globbuf.gl_pathv[j]);
-                        }
-                        globfree(&globbuf);
-                    } else if (ret == GLOB_NOMATCH) {
-                        current->args[i++] = strdup(arg);
-                    } else {
-                        perror("glob");
-                    }
-                } else {
-                    current->args[i++] = strdup(arg);
-                }
-            }
-
-            arg = strtok_r(NULL, delim_token, &saveptr_token);
-        }
-
-        current->args[i] = NULL;
-        current->nargs = i;
-        i = 0;
-        token = strtok_r(NULL, delim_line, &saveptr_line);
-    }
-}
-
-void execute_commands(command *commands, int num_commands) {
-    int start = 0, end;
-
-    for (end = 0; end < num_commands; ++end) {
-        if (commands[end].cmd == NULL) {
-            execute_pipeline(commands, start, end);
-            start = end + 1;
+void execute_command_line(char *cmd) {
+    char *job = strtok(cmd, "&;");
+    char *next_token = strtok(NULL, "&;");
+    while (job != NULL) {
+        execute_job(job, (next_token != NULL && *next_token == '&'));
+        job = next_token;
+        if (next_token != NULL) {
+            next_token = strtok(NULL, "&;");
         }
     }
-
-    if (start < num_commands) {
-        execute_pipeline(commands, start, num_commands);
-    }
 }
 
-void execute_pipeline(command *commands, int start, int end) {
-    int fds[2], status, in_fd = 0;
-    pid_t pid;
-
-    for (int i = start; i < end; ++i) {
-        if (pipe(fds) < 0) {
+void execute_job(char *job, int bg) {
+    char *command = strtok(job, "|");
+    int pipefd[2];
+    int prev_pipefd = -1;
+    while (command != NULL) {
+        if (pipe(pipefd) == -1) {
             perror("pipe");
             exit(1);
         }
-
-        if ((pid = fork()) < 0) {
-            perror("fork");
-            exit(1);
+        if (fork() == 0) {
+            if (prev_pipefd != -1) {
+                dup2(prev_pipefd, STDIN_FILENO);
+                close(prev_pipefd);
+            }
+            if (strtok(NULL, "|") != NULL) {
+                dup2(pipefd[1], STDOUT_FILENO);
+            }
+            close(pipefd[0]);
+            close(pipefd[1]);
+            execute_command(command);
         }
+        if (prev_pipefd != -1) {
+            close(prev_pipefd);
+        }
+        prev_pipefd = pipefd[0];
+        close(pipefd[1]);
+        command = strtok(NULL, "|");
+    }
+    if (!bg) {
+        int status;
+        wait(&status);
+    }
+}
 
-        if (pid == 0) {
-            if (in_fd != 0) {
-                dup2(in_fd, STDIN_FILENO);
-                close(in_fd);
-            }
-
-            if (i < end - 1) {
-                dup2(fds[1], STDOUT_FILENO);
-                close(fds[1]);
-            }
-
-            close(fds[0]);
-
-            if (commands[i].input != NULL) {
-                int fd = open(commands[i].input, O_RDONLY);
-                if (fd < 0) {
-                    perror(commands[i].input);
-                    exit(1);
-                }
-                dup2(fd, STDIN_FILENO);
-                close(fd);
-            }
-
-            if (commands[i].output != NULL) {
-                int fd = open(commands[i].output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-                if (fd < 0) {
-                    perror(commands[i].output);
-                    exit(1);
-                }
-                dup2(fd, STDOUT_FILENO);
-                close(fd);
-            }
-
-            if (execvp(commands[i].cmd, commands[i].args) < 0) {
-                perror(commands[i].cmd);
+void execute_command(char *command) {
+    char *args[MAX_ARGS_SIZE];
+    int arg_idx = 0;
+    char *token = strtok(command, " \t\n");
+    int input_fd = -1;
+    int output_fd = -1;
+    while (token != NULL) {
+        if (strcmp(token, "<") == 0) {
+            token = strtok(NULL, " \t\n");
+            input_fd = open(token, O_RDONLY);
+            if (input_fd == -1) {
+                perror("open");
                 exit(1);
             }
+            dup2(input_fd, STDIN_FILENO);
+            close(input_fd);
+        } else if (strcmp(token, ">") == 0) {
+            token = strtok(NULL, " \t\n");
+            output_fd = open(token, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if (output_fd == -1) {
+                perror("open");
+                exit(1);
+            }
+            dup2(output_fd, STDOUT_FILENO);
+            close(output_fd);
         } else {
-            if (in_fd != 0) {
-                close(in_fd);
+            glob_t globbuf;
+            globbuf.gl_offs = 0;
+            expand_wildcards(token, &globbuf);
+                        for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+                args[arg_idx++] = globbuf.gl_pathv[i];
             }
-
-            close(fds[1]);
-            in_fd = fds[0];
-
-            if (commands[i].background) {
-                printf("Background job %d\n", pid);
-            } else {
-                waitpid(pid, &status, 0);
-            }
+            globfree(&globbuf);
         }
+        token = strtok(NULL, " \t\n");
+    }
+    args[arg_idx] = NULL;
+
+    if (arg_idx > 0) {
+        builtin_commands(args[0]);
+    }
+
+    if (execvp(args[0], args) == -1) {
+        perror("execvp");
+        exit(1);
     }
 }
 
-void free_commands(command *commands, int num_commands) {
-    for (int i = 0; i < num_commands; ++i) {
-        free(commands[i].cmd);
-        for (int j = 0; j < commands[i].nargs; ++j) {
-            free(commands[i].args[j]);
-        }
-        free(commands[i].input);
-        free(commands[i].output);
+void expand_wildcards(char *token, glob_t *globbuf) {
+    int flags = GLOB_NOCHECK | GLOB_APPEND;
+    if (globbuf->gl_pathc == 0) {
+        flags = GLOB_NOCHECK;
     }
+    glob(token, flags, NULL, globbuf);
 }
 
-void handle_exit(command *commands, int num_commands) {
-    free_commands(commands, num_commands);
-    exit(0);
+void builtin_commands(char *cmd) {
+    if (strcmp(cmd, "prompt") == 0) {
+        printf("Enter new prompt: ");
+        char new_prompt[100];
+        if (fgets(new_prompt, sizeof(new_prompt), stdin) != NULL) {
+            strtok(new_prompt, "\n");
+            strcpy(cmd, new_prompt);
+        }
+    } else if (strcmp(cmd, "pwd") == 0) {
+        char cwd[1024];
+        if (getcwd(cwd, sizeof(cwd)) != NULL) {
+            printf("%s\n", cwd);
+        } else {
+            perror("getcwd");
+        }
+        exit(0);
+    } else if (strcmp(cmd, "cd") == 0) {
+        char *path = strtok(NULL, " \t\n");
+        if (chdir(path) == -1) {
+            perror("chdir");
+        }
+        exit(0);
+    } else if (strcmp(cmd, "exit") == 0) {
+        exit(0);
+    }
 }
 
