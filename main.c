@@ -71,7 +71,7 @@ int main() {
 	init_signal();
 	do {
 		wait_for_zombies();
-		printf("$ ", prompt);	
+		printf("%sshell$ ", prompt);	
 		get_input(&cmd);
 
 		char **tokens = (char**) malloc((token_number(cmd)+1) * sizeof(char*));
