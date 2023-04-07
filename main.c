@@ -61,12 +61,16 @@ void init_signal();
 // Get user input from commandline 
 void get_input(char **input);
 
+// Zombie process claimer
+void wait_for_zombies();
+
 // Main function
 int main() {
 	char *cmd = NULL;
 	char prompt[MAXSIZE] = "";
 	init_signal();
 	do {
+		wait_for_zombies();
 		printf("\n%s$ ", prompt);	
 		get_input(&cmd);
 
@@ -384,4 +388,16 @@ void free_all(Command *commands, int num_of_cmds) {
 	for(int n = 0; n < num_of_cmds; n++) {
 		free(commands[n].argv);
 	}
+}
+
+void wait_for_zombies() {
+    int more = 1;        // more zombies to claim
+    pid_t pid;           // pid of the zombie
+    int status;          // termination status of the zombie
+
+    while (more) {
+        pid = waitpid(-1, &status, WNOHANG);
+        if (pid <= 0) 
+            more = 0;
+    }
 }
