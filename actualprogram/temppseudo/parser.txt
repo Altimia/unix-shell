@@ -1,0 +1,113 @@
+function parse_token(str_ptr)
+    str = str_ptr
+    while (isspace(*str)) str++
+    if (*str == '\0') return NULL
+
+    start = str
+    while (*str != '\0' && !isspace(*str) && !strchr("&;|<>", *str))
+        if (*str == '\\')
+            str++
+            if (*str == '\0') break
+        str++
+
+    length = str - start
+    token = malloc(length + 1)
+    strncpy(token, start, length)
+    token[length] = '\0'
+
+    str_ptr = str
+    return token
+
+function parse_command(str_ptr)
+    cmd = calloc(1, sizeof(struct command))
+    cmd->argv = calloc(MAX_ARGS + 1, sizeof(char *))
+    argc = 0
+
+    globbuf = glob()
+    glob_flags = GLOB_NOCHECK | GLOB_APPEND
+    glob_initialized = false
+
+    while (true)
+        token = parse_token(str_ptr)
+        if (token == NULL) break
+
+        if (strpbrk(token, "*?") != NULL)
+            if (!glob_initialized)
+                glob(token, GLOB_NOCHECK, NULL, &globbuf)
+                glob_initialized = true
+            else
+                glob(token, glob_flags, NULL, &globbuf)
+        else
+            if (!glob_initialized)
+                globbuf.gl_pathv = NULL
+                globbuf.gl_pathc = 0
+                glob_initialized = true
+            globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv))
+            globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token)
+            globbuf.gl_pathv[globbuf.gl_pathc] = NULL
+
+        free(token)
+
+        if (globbuf.gl_pathc >= MAX_ARGS)
+            printf("Too many arguments in command\n")
+            free_command(cmd)
+            return NULL
+
+    if (globbuf.gl_pathc == 0)
+        free_command(cmd)
+        return NULL
+
+    for (i = 0 to globbuf.gl_pathc)
+        cmd->argv[argc++] = strdup(globbuf.gl_pathv[i])
+    cmd->argv[argc] = NULL
+
+    for (i = 0 to globbuf.gl_pathc)
+        free(globbuf.gl_pathv[i])
+    free(globbuf.gl_pathv)
+
+    return cmd
+
+function parse_command_line(const char *command_line):
+    cmd_list = allocate memory for a struct command_list
+    current_job = null
+    current_cmd = null
+    str = duplicate string from command_line
+    str_ptr = str
+    
+    while *str_ptr != '\0':
+        cmd = parse_command(&str_ptr)
+        
+        if cmd == null:
+            break
+        
+        if current_cmd == null:
+            current_cmd = cmd
+        else:
+            current_cmd.next = cmd
+            current_cmd = cmd
+        
+        if current_job == null:
+            current_job = allocate memory for a struct job
+            current_job.first_command = current_cmd
+            cmd_list.first_job = current_job
+        
+        skip whitespaces in str_ptr
+        
+        if *str_ptr is '|' or '<' or '>':
+            if *str_ptr is '<':
+                cmd.input_redir = parse_token(&str_ptr)
+            else if *str_ptr is '>':
+                cmd.output_redir = parse_token(&str_ptr)
+            str_ptr++
+        else if *str_ptr is '&' or ';':
+            new_job = allocate memory for a struct job
+            current_job.next = new_job
+            current_job = new_job
+            current_cmd = null
+            str_ptr++
+            
+            if *str_ptr is '&':
+                current_job.background = true
+    
+    free str
+    return cmd_list

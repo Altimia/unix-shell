@@ -1,0 +1,36 @@
+function set_prompt(new_prompt: string)
+    copy new_prompt to prompt with a maximum length of MAX_COMMAND_LEN
+    set the end of the prompt string with '\0'
+
+function handle_signal(sig: int)
+    if sig is equal to SIGINT
+        print prompt
+        flush stdout
+
+main()
+    declare command_line as a string with MAX_COMMAND_LEN length
+    declare action as a struct sigaction
+
+    set action.sa_handler to handle_signal
+    call sigemptyset with action.sa_mask as the argument
+    set action.sa_flags to 0
+
+    call sigaction with SIGINT and action as arguments, and ignore the result
+    call sigaction with SIGTSTP and action as arguments, and ignore the result
+
+    repeat forever
+        print prompt
+        flush stdout
+        if fgets with command_line, MAX_COMMAND_LEN, and stdin returns NULL
+            print "Failed to read command line."
+            continue the loop
+
+        cmd_list = parse_command_line with command_line as the argument
+        if cmd_list is NULL
+            print "Failed to parse command line."
+            continue the loop
+
+        call execute_command_list with cmd_list as the argument
+        call free_command_list with cmd_list as the argument
+
+    return 0

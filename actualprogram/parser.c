@@ -131,8 +131,12 @@ struct command_list *parse_command_line(const char *command_line) {
                 cmd->input_redir = parse_token(&str_ptr);
             } else if (*str_ptr == '>') {
                 cmd->output_redir = parse_token(&str_ptr);
+            } else if (*str_ptr == '|') {
+                str_ptr++;
+                struct command *next_cmd = parse_command(&str_ptr);
+                cmd->next = next_cmd;
+                current_cmd = next_cmd;
             }
-            str_ptr++;
         } else if (*str_ptr == '&' || *str_ptr == ';') {
             struct job *new_job = calloc(1, sizeof(struct job));
             current_job->next = new_job;
@@ -144,6 +148,7 @@ struct command_list *parse_command_line(const char *command_line) {
                 current_job->background = true;
             }
         }
+        while (isspace(*str_ptr)) str_ptr++;
     }
 
     free(str);
