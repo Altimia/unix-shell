@@ -1,32 +1,53 @@
 # unix-shell
-This code is a simple implementation of a custom shell in C. It supports basic shell functionalities such as input and output redirection, background jobs, pipelines, and a few built-in commands (cd, pwd, exit, and prompt).
+This project is a shell command interpreter that implements command separators, redirection, wildcard expressions, and a number of custom commands. The source code defines the data structure and functions required to handle these features, creating a lightweight and extensible shell environment.
 
-The main function runs a loop that reads input, tokenizes the input command line, parses the command line structure, executes the command line, frees the token list memory, and frees the input memory.
+Features
+    Command Separators:
+        Pipe separator: |
+        Sequence separator: ;
+        Background separator: &
+    Command interpreter data structure
+    Custom commands:
+        prompt
+        cd
+        pwd
+        exit
+    Wildcard expressions
+    Redirection handling
+    Signal handling
+    Memory management
 
-tokenize_command_line() tokenizes the input command line into separate words and stores them in an array.
+Usage
+    Compile the source code.
+    Run the compiled binary to start the shell.
+    Use the custom commands, as well as standard shell commands, with support for separators and redirection.
+    Functions
 
-free_token_list() frees the memory allocated for the token list.
+Below is a brief description of the functions implemented in the project:
+    is_sequence_seperator(): Checks if a token is a sequence separator.
+    command_constructor(): Constructs a command from provided data.
+    command_make(): Handles error checking and discovers command start and end in the token array.
+    search_redirection(): Searches for redirection tokens in a command.
+    command_args_make(): Constructs a command's arguments.
+    init_commands(): Initializes all commands.
+    tokenise(): Creates an array of string tokens from a given input line.
+    get_token_num(): Gets the number of tokens needed for a given input line.
+    wildcard_check(): Checks for wildcard expressions in a command.
+    wildcard_handle(): Handles wildcard expressions in a command.
+    pwd_command(): Displays the current working directory.
+    cd_command(): Changes the working directory.
+    prompt_command(): Changes the command-line prompt.
+    redirection(): Handles standard input and output redirections.
+    pipe_command_execution(): Handles shell pipeline execution.
+    command_execution(): Handles command execution.
+    free_all(): Frees allocated memory for command arguments.
+    handle_command_execution(): Handles command execution based on the command provided.
+    handler(): Handles signals.
+    init_signal(): Sets up signal handling.
+    get_input(): Gets user input from the command line.
 
-parse_command_line() parses the token list to fill a Command structure, determining the type of command, input and output files, and whether it's a background job or part of a pipeline.
-
-execute_command_line() iterates through the jobs separated by ';', handles redirection, and executes the background job or foreground job accordingly.
-
-execute_builtin_command() executes built-in commands like "cd", "exit", "pwd", and "prompt".
-
-change_prompt() changes the shell prompt to the given string.
-
-is_builtin_command() checks if the given command is a built-in command.
-
-expand_wildcards() expands wildcard patterns (such as '*' and '?') in the command line.
-
-handle_redirection() handles input and output redirection by opening the appropriate files and redirecting the standard input and output.
-
-restore_standard_io() restores standard input and output after redirection.
-
-execute_pipeline() executes a command as part of a pipeline by creating a pipe between commands and forking child processes to execute each command.
-
-execute_background_job() forks a child process to execute a command in the background, handling input and output redirection as needed.
-
-init_command_line() initializes a CommandLine structure with default values.
-
-sigchld_handler() is a signal handler for the SIGCHLD signal, which is sent to the parent process when a child process terminates. This function ensures that the child processes are reaped properly.
+Custom Commands
+    prompt: Changes the command-line prompt to a specified string.
+    cd: Changes the working directory to a specified path.
+    pwd: Displays the current working directory.
+    exit: Exits the shell.
