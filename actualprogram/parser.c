@@ -19,12 +19,16 @@ static char *parse_token(char **str_ptr) {
     if (*str == '\0') return NULL;
 
     char *start = str;
-    while (*str != '\0' && !isspace(*str) && !strchr("&;|<>", *str)) {
-        if (*str == '\\') {
-            str++;
-            if (*str == '\0') break;
-        }
+    if (strchr("&;|<>", *str)) {
         str++;
+    } else {
+        while (*str != '\0' && !isspace(*str) && !strchr("&;|<>", *str)) {
+            if (*str == '\\') {
+                str++;
+                if (*str == '\0') break;
+            }
+            str++;
+        }
     }
 
     size_t length = str - start;
