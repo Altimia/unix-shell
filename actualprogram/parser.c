@@ -46,6 +46,7 @@ static struct command *parse_command(char **str_ptr) {
     glob_t globbuf;
     int glob_flags = GLOB_NOCHECK | GLOB_APPEND;
     bool glob_initialized = false;
+    char **temp_argv = NULL;
 
     while (true) {
         char *token = parse_token(str_ptr);
@@ -64,9 +65,8 @@ static struct command *parse_command(char **str_ptr) {
                 globbuf.gl_pathc = 0;
                 glob_initialized = true;
             }
-            globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv));
-            globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
-            globbuf.gl_pathv[globbuf.gl_pathc] = NULL;
+            temp_argv = realloc(temp_argv, (globbuf.gl_pathc + 1) * sizeof(char *));
+            temp_argv[globbuf.gl_pathc++] = strdup(token);
         }
 
         free(token);
@@ -84,9 +84,20 @@ static struct command *parse_command(char **str_ptr) {
     }
 
     for (size_t i = 0; i < globbuf.gl_pathc; i++) {
-        cmd->argv[argc++] = strdup(globbuf.gl_pathv[i]);
+        if (globbuf.gl_pathv){
+            cmd->argv[argc++] = strdup(globbuf.gl_pathv[i]);
+        } else if (temp_argv){
+            cmd->argv[argc++] = strdup(temp_argv[i]);
+        }
     }
     cmd->argv[argc] = NULL;
+    
+    if (temp_argv) {
+        for (size_t i = 0; i < globbuf.gl_pathc; i++) {
+            free(temp_argv[i]);
+        }
+        free(temp_argv);
+    }
     
     globfree(&globbuf);
 
