@@ -18,7 +18,6 @@
 
 // All the specific command strings
 #define CMD_PROMPT "prompt"
-#define CMD_WALK "walk"
 #define CMD_CD "cd"
 #define CMD_PWD "pwd"
 #define CMD_EXIT "exit"
@@ -121,7 +120,7 @@ void handle_command_execution(char *prompt, Command *commands, int num_of_cmds, 
 		if(strcmp(commands[n].argv[0], CMD_PROMPT) == 0) {
 			prompt_command(prompt, commands[n]);
 		}
-		else if(strcmp(commands[n].argv[0], CMD_WALK) == 0 || strcmp(commands[n].argv[0], CMD_CD) == 0) {
+		else if(strcmp(commands[n].argv[0], CMD_CD) == 0) {
 			cd_command(commands[n]);
 		}
 		else if(strcmp(commands[n].argv[0], CMD_PWD) == 0) {
