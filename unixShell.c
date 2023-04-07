@@ -2,290 +2,260 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <errno.h>
 #include <glob.h>
 #include <stdbool.h>
-#include <fcntl.h>
 
-// Structure for storing command line information
+#define MAX_COMMANDS 100
+#define MAX_ARGUMENTS 1000
+#define BUFFER_SIZE 1024
+
 typedef struct command {
-    char **args;
-    int arg_count;
-    char *input_redirection;
-    char *output_redirection;
-    struct command *next;
-} command_t;
+    char *cmd;
+    char *args[MAX_ARGUMENTS];
+    int nargs;
+    char *input;
+    char *output;
+    bool background;
+} command;
 
-typedef struct {
-    command_t *commands;
-    char **tokens;
-    int token_count;
-} command_line_info;
-
-// Function prototypes
-void tokenize_command_line(char *input, char ***tokens, int *token_count);
-void parse_command_line(command_line_info *cmd_info);
-bool is_builtin_command(char *command);
-void execute_command_line(command_line_info *cmd_info);
-void execute_builtin_command(const char *command, char **args);
-void execute_non_builtin_command(command_t *command);
-void expand_wildcard_characters(char **tokens, int token_count, char ***expanded_tokens, int *expanded_token_count);
-//void handle_redirection(...);
-//void execute_pipeline(...);
-//void execute_background_job(...);
-//void execute_sequential_job(...);
+void change_directory(char *path);
+void print_working_directory();
+void parse_command(char *line, command *commands, int *num_commands);
+void execute_commands(command *commands, int num_commands);
+void execute_pipeline(command *commands, int start, int end);
+void free_commands(command *commands, int num_commands);
+void handle_exit(command *commands, int num_commands);
 
 int main() {
-    char *input;
-    size_t buffer_size = 1024;
-    
+    char prompt[BUFFER_SIZE] = "myshell> ";
+    char line[BUFFER_SIZE];
+    command commands[MAX_COMMANDS];
+    int num_commands;
+
     while (1) {
-        // Display the shell prompt
-        printf("> ");
-        
-        // Read the input command line
-        input = (char *)malloc(buffer_size * sizeof(char));
-        getline(&input, &buffer_size, stdin);
-        
-        // Tokenize the input command line
-        char **tokens;
-        int token_count;
-        tokenize_command_line(input, &tokens, &token_count);
-
-        char **expanded_tokens;
-        int expanded_token_count;
-        expand_wildcard_characters(tokens, token_count, &expanded_tokens, &expanded_token_count);
-
-        for (int i = 0; i < expanded_token_count; i++) {
-            printf("Expanded token %d: %s\n", i, expanded_tokens[i]);
+        printf("%s", prompt);
+        if (fgets(line, BUFFER_SIZE, stdin) == NULL) {
+            break;
         }
-        
-        // Parse the command line structure
-        //parse_command_line(...);
 
-        // Create a command line info structure to store parsed information
-        //command_line_info cmd_info;
-        
-        // TODO: Fill the cmd_info structure with the parsed information
-        
-        // Execute the command line
-        //execute_command_line(&cmd_info);
-        
-        // Free the memory
-        free(input);
-        for (int i = 0; i < token_count; i++) {
-            free(tokens[i]);
+        parse_command(line, commands, &num_commands);
+        if (num_commands == 0) {
+            continue;
         }
-        free(tokens);
-        for (int i = 0; i < expanded_token_count; i++) {
-            free(expanded_tokens[i]);
+
+        if (strcmp(commands[0].cmd, "prompt") == 0) {
+            if (commands[0].nargs > 1) {
+                printf("prompt: too many arguments\n");
+            } else if (commands[0].nargs == 1) {
+                strncpy(prompt, commands[0].args[0], BUFFER_SIZE - 1);
+                prompt[BUFFER_SIZE - 1] = '\0';
+            }
+        } else if (strcmp(commands[0].cmd, "exit") == 0) {
+            handle_exit(commands, num_commands);
+        } else if (strcmp(commands[0].cmd, "pwd") == 0) {
+            print_working_directory();
+        } else if (strcmp(commands[0].cmd, "cd") == 0) {
+            if (commands[0].nargs == 1) {
+                change_directory(commands[0].args[0]);
+            } else {
+                printf("cd: too many arguments\n");
+            }
+        } else {
+            execute_commands(commands, num_commands);
         }
-        free(expanded_tokens);
+
+        free_commands(commands, num_commands);
     }
-    
+
     return 0;
 }
 
-void tokenize_command_line(char *input, char ***tokens, int *token_count) {
-    *token_count = 0;
-    *tokens = NULL;
-    char *token = strtok(input, " \t\n");
-    while (token) {
-        *tokens = realloc(*tokens, (*token_count + 1) * sizeof(char *));
-        (*tokens)[*token_count] = strdup(token);
-        (*token_count)++;
-        token = strtok(NULL, " \t\n");
+void change_directory(char *path) {
+    if (chdir(path) != 0) {
+        perror("cd");
     }
 }
 
-void parse_command_line(command_line_info *cmd_info) {
-    command_t *current_command = NULL;
-    command_t *last_command = NULL;
+void print_working_directory() {
+    char cwd[BUFFER_SIZE];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        printf("%s\n", cwd);
+    } else {
+        perror("pwd");
+    }
+}
 
-    for (int i = 0; i < cmd_info->token_count; i++) {
-        char *token = cmd_info->tokens[i];
+void parse_command(char *line, command *commands, int *num_commands) {
+    int i = 0;
+    char *token;
+    char *saveptr_line, *saveptr_token;
+    const char *delim_line = "&;\n";
+    const char *delim_token = " \t";
 
-        if (strcmp(token, "|") == 0) {
-            if (!current_command) {
-                fprintf(stderr, "Invalid syntax: Unexpected '|'\n");
-                exit(EXIT_FAILURE);
-            }
-            current_command = NULL;
-        } else if (strcmp(token, "<") == 0) {
-            if (!current_command || i + 1 >= cmd_info->token_count || !current_command->args[0]) {
-                fprintf(stderr, "Invalid syntax: Unexpected '<'\n");
-                exit(EXIT_FAILURE);
-            }
-            current_command->input_redirection = cmd_info->tokens[++i];
-        } else if (strcmp(token, ">") == 0) {
-            if (!current_command || i + 1 >= cmd_info->token_count || !current_command->args[0]) {
-                fprintf(stderr, "Invalid syntax: Unexpected '>'\n");
-                exit(EXIT_FAILURE);
-            }
-            current_command->output_redirection = cmd_info->tokens[++i];
-        } else {
-            if (!current_command) {
-                current_command = calloc(1, sizeof(command_t));
-                current_command->args = calloc(cmd_info->token_count + 1, sizeof(char *));
-                current_command->arg_count = 0;
+    *num_commands = 0;
+    token = strtok_r(line, delim_line, &saveptr_line);
+    while (token != NULL) {
+        command *current = &commands[(*num_commands)++];
+        current->cmd = NULL;
+        current->nargs = 0;
+        current->input = NULL;
+        current->output = NULL;
+        current->background = false;
 
-                if (last_command) {
-                    last_command->next = current_command;
+        char *arg = strtok_r(token, delim_token, &saveptr_token);
+        while (arg != NULL) {
+            if (strcmp(arg, "<") == 0) {
+                arg = strtok_r(NULL, delim_token, &saveptr_token);
+                if (arg == NULL) {
+                    fprintf(stderr, "parse_command: no input file\n");
+                    break;
+                }
+                current->input = strdup(arg);
+            } else if (strcmp(arg, ">") == 0) {
+                arg = strtok_r(NULL, delim_token, &saveptr_token);
+                if (arg == NULL) {
+                    fprintf(stderr, "parse_command: no output file\n");
+                    break;
+                }
+                current->output = strdup(arg);
+            } else if (strcmp(arg, "|") == 0) {
+                break;
+            } else if (strcmp(arg, "&") == 0) {
+                current->background = true;
+            } else {
+                if (current->cmd == NULL) {
+                    current->cmd = strdup(arg);
+                }
+
+                if (strchr(arg, '*') != NULL || strchr(arg, '?') != NULL) {
+                    glob_t globbuf;
+                    int ret = glob(arg, 0, NULL, &globbuf);
+                    if (ret == 0) {
+                        for (size_t j = 0; j < globbuf.gl_pathc; ++j) {
+                            current->args[i++] = strdup(globbuf.gl_pathv[j]);
+                        }
+                        globfree(&globbuf);
+                    } else if (ret == GLOB_NOMATCH) {
+                        current->args[i++] = strdup(arg);
+                    } else {
+                        perror("glob");
+                    }
                 } else {
-                    cmd_info->commands = current_command;
+                    current->args[i++] = strdup(arg);
                 }
             }
 
-            current_command->args[current_command->arg_count++] = token;
-            last_command = current_command;
+            arg = strtok_r(NULL, delim_token, &saveptr_token);
         }
+
+        current->args[i] = NULL;
+        current->nargs = i;
+        i = 0;
+        token = strtok_r(NULL, delim_line, &saveptr_line);
     }
 }
 
-bool is_builtin_command(char *command) {
-    if (strcmp(command, "prompt") == 0 || strcmp(command, "pwd") == 0 ||
-        strcmp(command, "cd") == 0 || strcmp(command, "exit") == 0) {
-        return true;
-    }
-    return false;
-}
+void execute_commands(command *commands, int num_commands) {
+    int start = 0, end;
 
-void execute_builtin_command(const char *command, char **args) {
-    if (strcmp(command, "prompt") == 0) {
-        // Change shell prompt
-        if (args[1]) {
-            // Assume the shell prompt variable is a global variable or accessible in some other way
-            strcpy(shell_prompt, args[1]);
-        } else {
-            fprintf(stderr, "Usage: prompt <new_prompt>\n");
+    for (end = 0; end < num_commands; ++end) {
+        if (commands[end].cmd == NULL) {
+            execute_pipeline(commands, start, end);
+            start = end + 1;
         }
-    } else if (strcmp(command, "pwd") == 0) {
-        // Print working directory
-        char cwd[1024];
-        if (getcwd(cwd, sizeof(cwd)) != NULL) {
-            printf("%s\n", cwd);
-        } else {
-            perror("Error getting current directory");
-        }
-    } else if (strcmp(command, "cd") == 0) {
-        // Change directory
-        if (args[1]) {
-            if (chdir(args[1]) != 0) {
-                perror("Error changing directory");
-            }
-        } else {
-            // Change to user's home directory if no path is provided
-            const char *home = getenv("HOME");
-            if (home) {
-                chdir(home);
-            } else {
-                fprintf(stderr, "Error: HOME environment variable not set\n");
-            }
-        }
-    } else if (strcmp(command, "exit") == 0) {
-        // Exit shell
-        exit(0);
+    }
+
+    if (start < num_commands) {
+        execute_pipeline(commands, start, num_commands);
     }
 }
 
-void execute_non_builtin_command(command_t *command) {
-    pid_t pid = fork();
-    if (pid == 0) {
-        // Child process
+void execute_pipeline(command *commands, int start, int end) {
+    int fds[2], status, in_fd = 0;
+    pid_t pid;
 
-        // Handle input redirection
-        if (command->input_redirection) {
-            int in_fd = open(command->input_redirection, O_RDONLY);
-            if (in_fd < 0) {
-                perror("Error opening input file");
-                exit(1);
-            }
-            dup2(in_fd, STDIN_FILENO);
-            close(in_fd);
-        }
-
-        // Handle output redirection
-        if (command->output_redirection) {
-            int out_fd = open(command->output_redirection, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if (out_fd < 0) {
-                perror("Error opening output file");
-                exit(1);
-            }
-            dup2(out_fd, STDOUT_FILENO);
-            close(out_fd);
-        }
-
-        // Execute command
-        if (execvp(command->argv[0], command->argv) < 0) {
-            perror("Error executing command");
+    for (int i = start; i < end; ++i) {
+        if (pipe(fds) < 0) {
+            perror("pipe");
             exit(1);
         }
 
-    } else if (pid > 0) {
-        // Parent process
-
-        if (!command->background) {
-            // Wait for child process if not a background job
-            int status;
-            waitpid(pid, &status, 0);
+        if ((pid = fork()) < 0) {
+            perror("fork");
+            exit(1);
         }
-    } else {
-        perror("Error forking process");
-    }
-}
 
-void execute_command_line(command_line_info *cmd_info) {
-    command_t *current_command = cmd_info->commands;
-
-    while (current_command) {
-        if (is_builtin_command(current_command->args[0])) {
-            execute_builtin_command(current_command);
-        } else {
-            execute_non_builtin_command(current_command);
-        }
-        current_command = current_command->next;
-    }
-}
-
-void expand_wildcard_characters(char **tokens, int token_count, char ***expanded_tokens, int *expanded_token_count) {
-    *expanded_token_count = 0;
-    *expanded_tokens = calloc(token_count, sizeof(char *));
-
-    for (int i = 0; i < token_count; i++) {
-        char *token = tokens[i];
-
-        if (strchr(token, '*') || strchr(token, '?')) {
-            glob_t glob_result;
-            glob(token, 0, NULL, &glob_result);
-
-            *expanded_tokens = realloc(*expanded_tokens, (*expanded_token_count + glob_result.gl_pathc) * sizeof(char *));
-
-            for (size_t j = 0; j < glob_result.gl_pathc; j++) {
-                (*expanded_tokens)[*expanded_token_count] = strdup(glob_result.gl_pathv[j]);
-                (*expanded_token_count)++;
+        if (pid == 0) {
+            if (in_fd != 0) {
+                dup2(in_fd, STDIN_FILENO);
+                close(in_fd);
             }
 
-            globfree(&glob_result);
+            if (i < end - 1) {
+                dup2(fds[1], STDOUT_FILENO);
+                close(fds[1]);
+            }
+
+            close(fds[0]);
+
+            if (commands[i].input != NULL) {
+                int fd = open(commands[i].input, O_RDONLY);
+                if (fd < 0) {
+                    perror(commands[i].input);
+                    exit(1);
+                }
+                dup2(fd, STDIN_FILENO);
+                close(fd);
+            }
+
+            if (commands[i].output != NULL) {
+                int fd = open(commands[i].output, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+                if (fd < 0) {
+                    perror(commands[i].output);
+                    exit(1);
+                }
+                dup2(fd, STDOUT_FILENO);
+                close(fd);
+            }
+
+            if (execvp(commands[i].cmd, commands[i].args) < 0) {
+                perror(commands[i].cmd);
+                exit(1);
+            }
         } else {
-            (*expanded_tokens)[*expanded_token_count] = strdup(token);
-            (*expanded_token_count)++;
+            if (in_fd != 0) {
+                close(in_fd);
+            }
+
+            close(fds[1]);
+            in_fd = fds[0];
+
+            if (commands[i].background) {
+                printf("Background job %d\n", pid);
+            } else {
+                waitpid(pid, &status, 0);
+            }
         }
     }
 }
 
-void handle_redirection(...) {
-    // TODO: Implement support for input and output redirection
+void free_commands(command *commands, int num_commands) {
+    for (int i = 0; i < num_commands; ++i) {
+        free(commands[i].cmd);
+        for (int j = 0; j < commands[i].nargs; ++j) {
+            free(commands[i].args[j]);
+        }
+        free(commands[i].input);
+        free(commands[i].output);
+    }
 }
 
-void execute_pipeline(...) {
-    // TODO: Implement support for the pipeline symbol '|'
+void handle_exit(command *commands, int num_commands) {
+    free_commands(commands, num_commands);
+    exit(0);
 }
 
-void execute_background_job(...) {
-    // TODO: Implement support for executing background jobs using the '&' symbol
-}
-
-void execute_sequential_job(...) {
-    // TODO: Implement support for sequential job execution using the ';' symbol
-}
