@@ -19,3 +19,17 @@ void execute_job(struct Job *job) {
         command = command->pipe_to;
     }
 }
+
+void free_job(struct Job *job) {
+    if (!job) {
+        return;
+    }
+
+    struct Command *command = job->command;
+    while (command) {
+        struct Command *next = command->pipe_to;
+        free_command(command);
+        command = next;
+    }
+    free(job);
+}
