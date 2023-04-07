@@ -19,8 +19,17 @@ static char *parse_token(char **str_ptr) {
     if (*str == '\0') return NULL;
 
     char *start = str;
-    while (*str != '\0' && !isspace(*str) && !strchr("&;|<>", *str)) {
-        if (*str == '\\') {
+    bool in_single_quotes = false;
+    bool in_double_quotes = false;
+    
+    while (*str != '\0') {
+        if (*str == '\'' && !in_double_quotes) {
+            in_single_quotes = !in_single_quotes;
+        } else if (*str == '\"' && !in_single_quotes) {
+            in_double_quotes = !in_double_quotes;
+        } else if ((!in_single_quotes && !in_double_quotes && (isspace(*str) || strchr("&;|<>", *str)))) {
+            break;
+        } else if (*str == '\\') {
             str++;
             if (*str == '\0') break;
         }
