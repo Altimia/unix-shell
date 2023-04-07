@@ -66,7 +66,7 @@ static struct command *parse_command(char **str_ptr) {
             }
             globbuf.gl_pathv = realloc(globbuf.gl_pathv, (globbuf.gl_pathc + 2) * sizeof(*globbuf.gl_pathv));
             globbuf.gl_pathv[globbuf.gl_pathc++] = strdup(token);
-            globuff.gl_pathv[globbuf.gl_pathc] = NULL;
+            globbuf.gl_pathv[globbuf.gl_pathc] = NULL;
         }
 
         free(token);
